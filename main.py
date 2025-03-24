@@ -1,3 +1,12 @@
+"""
+RGM DOS ALUNOS:
+8113385780
+8129958741
+8129949041
+"""
+
+
+
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
