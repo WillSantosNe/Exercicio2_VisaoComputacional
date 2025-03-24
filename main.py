@@ -4,103 +4,107 @@ from PIL import Image, ImageTk
 import cv2
 import numpy as np
 
-# Variável global para armazenar a imagem carregada (no formato OpenCV - BGR)
-loaded_image = None
+class AplicacaoFiltros:
+    def __init__(self):
+        # Cria a janela principal internamente
+        self.root = tk.Tk()
+        self.root.title("Interface de Imagem e Filtros (OpenCV)")
+        self.root.geometry("500x600")
 
-def display_image(image):
-    """
-    Converte a imagem do OpenCV (BGR) para RGB, converte para PIL Image e exibe na interface.
-    """
-    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    pil_image = Image.fromarray(rgb)
-    photo = ImageTk.PhotoImage(pil_image)
-    label_imagem.config(image=photo)
-    label_imagem.image = photo  # Mantém referência para não limpar a imagem da memória
+        self.base_image = None    # imagem original sem rotacao
+        self.rotation_angle = 0   # angulo acumulado
 
-def escolher_imagem():
-    global loaded_image
-    file_path = filedialog.askopenfilename(
-        title="Selecione uma imagem",
-        filetypes=[("Arquivos de imagem", "*.jpg *.jpeg *.png *.gif")]
-    )
-    if file_path:
-        try:
-            # Lê a imagem com cv2 (formato BGR) e redimensiona para melhor visualização
-            loaded_image = cv2.imread(file_path)
-            if loaded_image is None:
-                raise Exception("Erro ao ler a imagem.")
-            loaded_image = cv2.resize(loaded_image, (300, 300))
-            display_image(loaded_image)
-        except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao abrir imagem:\n{e}")
+        # Botão para escolher a imagem
+        btn_escolher = tk.Button(
+            self.root, text="Escolher Imagem", command=self.escolher_imagem
+        )
+        btn_escolher.pack(pady=10)
 
-def aplicar_blur():
-    global loaded_image
-    if loaded_image is not None:
-        # Aplica o filtro Blur com cv2 (utilizando GaussianBlur)
-        blurred = cv2.GaussianBlur(loaded_image, (7, 7), 0)
-        loaded_image = blurred  # Atualiza a imagem carregada
-        display_image(blurred)
-    else:
-        messagebox.showwarning("Aviso", "Por favor, selecione uma imagem primeiro.")
+        # Label para exibir a imagem
+        self.label_imagem = tk.Label(self.root)
+        self.label_imagem.pack(pady=10)
 
-def aplicar_sharpen():
-    global loaded_image
-    if loaded_image is not None:
-        # Define um kernel para aumentar a nitidez (sharpen)
-        kernel = np.array([[0, -1, 0],
-                           [-1, 5, -1],
-                           [0, -1, 0]])
-        sharpened = cv2.filter2D(loaded_image, -1, kernel)
-        loaded_image = sharpened
-        display_image(sharpened)
-    else:
-        messagebox.showwarning("Aviso", "Por favor, selecione uma imagem primeiro.")
+        # Botão Blur
+        btn_blur = tk.Button(
+            self.root, text="Aplicar Blur", command=self.aplicar_blur
+        )
+        btn_blur.pack(pady=10)
 
-def rotacionar_imagem():
-    global loaded_image
-    if loaded_image is not None:
-        # Obtém as dimensões da imagem
-        (h, w) = loaded_image.shape[:2]
-        center = (w // 2, h // 2)
-        # Calcula a matriz de rotação para 45 graus
-        M = cv2.getRotationMatrix2D(center, 45, 1.0)
-        # Calcula as novas dimensões para que a imagem não seja cortada (expand=True)
-        cos = np.abs(M[0, 0])
-        sin = np.abs(M[0, 1])
-        nW = int((h * sin) + (w * cos))
-        nH = int((h * cos) + (w * sin))
-        # Ajusta a matriz de rotação para centralizar a imagem
-        M[0, 2] += (nW / 2) - center[0]
-        M[1, 2] += (nH / 2) - center[1]
-        rotated = cv2.warpAffine(loaded_image, M, (nW, nH))
-        loaded_image = rotated
-        display_image(rotated)
-    else:
-        messagebox.showwarning("Aviso", "Por favor, selecione uma imagem primeiro.")
+        # Botão Sharpen
+        btn_sharpen = tk.Button(
+            self.root, text="Aplicar Sharpening", command=self.aplicar_sharpen
+        )
+        btn_sharpen.pack(pady=10)
 
-# Cria a janela principal
-root = tk.Tk()
-root.title("Interface com Imagem e Filtros (cv2)")
-root.geometry("500x600")
+        # Botão Rotacionar
+        btn_rotate = tk.Button(
+            self.root, text="Rotacionar 45°", command=self.rotacionar_imagem
+        )
+        btn_rotate.pack(pady=10)
 
-# Botão para selecionar a imagem
-btn_escolher = tk.Button(root, text="Escolher Imagem", command=escolher_imagem)
-btn_escolher.pack(pady=10)
+        # Inicia o loop de eventos do Tkinter
+        self.root.mainloop()
 
-# Label para exibir a imagem selecionada
-label_imagem = tk.Label(root)
-label_imagem.pack(pady=10)
+    def escolher_imagem(self):
+        file_path = filedialog.askopenfilename(
+            title="Selecione uma imagem",
+            filetypes=[("Arquivos de imagem", "*.jpg *.jpeg *.png *.gif")]
+        )
+        if file_path:
+            try:
+                img = cv2.imread(file_path)  # BGR
+                if img is None:
+                    raise ValueError("Não foi possível ler a imagem.")
+                # Redimensiona para 300×300
+                img = cv2.resize(img, (300, 300))
+                self.base_image = img
+                self.rotation_angle = 0
+                self._atualizar_exibicao()
+            except Exception as e:
+                messagebox.showerror("Erro", f"Erro ao abrir imagem:\n{e}")
 
-# Botões para aplicar os filtros
-btn_blur = tk.Button(root, text="Aplicar Blur", command=aplicar_blur)
-btn_blur.pack(pady=10)
+    def aplicar_blur(self):
+        if self.base_image is None:
+            messagebox.showwarning("Aviso", "Selecione uma imagem primeiro.")
+            return
+        self.base_image = cv2.GaussianBlur(self.base_image, (7, 7), 0)
+        self._atualizar_exibicao()
 
-btn_sharpen = tk.Button(root, text="Aplicar Sharpening", command=aplicar_sharpen)
-btn_sharpen.pack(pady=10)
+    def aplicar_sharpen(self):
+        if self.base_image is None:
+            messagebox.showwarning("Aviso", "Selecione uma imagem primeiro.")
+            return
+        kernel = np.array([
+            [ 0, -1,  0],
+            [-1,  5, -1],
+            [ 0, -1,  0]
+        ], dtype=np.int32)
+        self.base_image = cv2.filter2D(self.base_image, -1, kernel)
+        self._atualizar_exibicao()
 
-btn_rotate = tk.Button(root, text="Rotacionar 45°", command=rotacionar_imagem)
-btn_rotate.pack(pady=10)
+    def rotacionar_imagem(self):
+        if self.base_image is None:
+            messagebox.showwarning("Aviso", "Selecione uma imagem primeiro.")
+            return
+        self.rotation_angle = (self.rotation_angle + 45) % 360
+        self._atualizar_exibicao()
 
-# Inicia o loop principal da interface
-root.mainloop()
+    def _atualizar_exibicao(self):
+        if self.base_image is None:
+            return
+
+        h, w = self.base_image.shape[:2]
+        centro = (w // 2, h // 2)
+        M = cv2.getRotationMatrix2D(centro, self.rotation_angle, 1.0)
+        rotated = cv2.warpAffine(self.base_image, M, (w, h))
+
+        # Converte para RGB e exibe
+        rotated_rgb = cv2.cvtColor(rotated, cv2.COLOR_BGR2RGB)
+        pil_img = Image.fromarray(rotated_rgb)
+        tk_img = ImageTk.PhotoImage(image=pil_img)
+
+        self.label_imagem.config(image=tk_img)
+        self.label_imagem.image = tk_img  # manter referência
+
+# Instancia a aplicação
+AplicacaoFiltros()
